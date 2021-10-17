@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+
+# Navigate to Kafka folder
+cd /usr/lib/kafka
+
+echo Start zookeeper \n
+bin/zookeeper-server-start.sh /usr/lib/kafka/config/zookeeper.properties
+
+echo Wait 30 sec \n
+sleep 30s
+
+echo Start Kafka \n
+bin/kafka-server-start.sh bin/kafka-server-stop.sh /usr/lib/kafka/config/server.properties
+
+echo Wait 30 sec \n
+sleep 30s
+
+# Create a topic "bitCoins" with a replication factor of 1 since we only have one server with 5 parttions,  which means we could have up to 5 Kafka consumers
+echo Create a Kafka topic "bitCoins" \n
+bin/kafka-topics.sh --create \
+  --zookeeper localhost:2181 \
+  --replication-factor 1 --partitions 5 \
+  --topic bitCoins
+
+
+# Navigate to NiFi folder
+cd /opt/nifi/nifi-current
+
+# Run Nifi
+echp run NiFi \n
+bin/nifi.sh start
+
+echo Wait 30 sec \n
+sleep 30s
+
+# NiFi REST API https://nifi.apache.org/docs/nifi-docs/rest-api/index.html
+
+
+# upload template (send to nifi)
+curl -i -X POST -H 'Content-Type: multipart/form-data' -F 'template=@HW2.xml' http://localhost:8081/nifi-api/process-groups/root/templates/upload
+#import template (open by nifi)
+##curl -i -X POST -H 'Content-Type: aplication/xml' http://localhost:8081/nifi-api/process-groups/bd691e04-f754-4f2b-8e36-152b6e8af46d/templates/import
+# zamiast import instantiate template
+curl -i -X POST -H 'Content-Type: application/json' -d '{"originX": 2.0,"originY": 3.0,"templateId": "bd691e04-f754-4f2b-8e36-152b6e8af46d"}' http://localhost:8081/nifi-api/process-groups/root/template-instance
+
+#get all process-groups?
+curl -X GET http://localhost:8081/nifi-api/flow/process-groups/root;
+
+# 12.10  ConnectWebSocket miał ID f95aced5-017b-1000-f151-7fcfd040f892
+# nifi flow process Group f95459ec-017b-1000-6a94-506018530a1b
+# curl -i -X PUT -H 'Content-Type: application/json' -d '{"revision":{"clientId":"tojaaaahhaa"},"processGroup":{"id":"f95459ec-017b-1000-6a94-506018530a1b","running":"true"}}' http://localhost:8081/nifi-api/controller/process-groups/f95459ec-017b-1000-6a94-506018530a1b/
+# curl -i -X PUT -H 'Content-Type: application/json' -d '{"status":"RUNNING"}' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892/run-status/
+# curl -i -X PUT -H 'Content-Type: application/json' -d '{"status": {"runStatus": "RUNNING"},"component": {"state": "RUNNING", "id": "f95aced5-017b-1000-f151-7fcfd040f892"}, "id": "f95aced5-017b-1000-f151-7fcfd040f892",  "revision": {"clientId":"tojah","version": 10}} ' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892/
+
+
+
+
+# to działa !!!!!!
+# wygląda na to że revision jest bardzo ważna
+# można ją otrzymać tą komendą
+curl -i -X GET -H 'Content-Type: application/json' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892
+revisionVersion=$(curl -i -X GET -H 'Content-Type: application/json' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892 2>&1 | grep -o '"version":[0-9]*}' | grep -o [0-9]*)
+let revisionVersion++
+
+
+oto wynik
+{"revision":{"clientId":"761865f6-017c-1000-d6dc-dbbb86b6183d","version":3},"id":"f95aced5-017b-1000-f151-7fcfd040f892","uri":"http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892","position":
+{"x":320.0,"y":16.0},"permissions":{"canRead":true,"canWrite":true},"bulletins":[],"component":{"id":"f95aced5-017b-1000-f151-7fcfd040f892","parentGroupId":"f95459ec-017b-1000-6a94-506018530a1b","position":{"x":320.0,"
+y":16.0},"name":"ConnectWebSocket","type":"org.apache.nifi.processors.websocket.ConnectWebSocket","bundle":{"group":"org.apache.nifi","artifact":"nifi-websocket-processors-nar","version":"1.12.1"},"state":"STOPPED","st
+yle":{},"relationships":[{"name":"binary message","description":"The WebSocket binary message output","autoTerminate":true},{"name":"connected","description":"The WebSocket session is established","autoTerminate":false
+},{"name":"text message","description":"The WebSocket text message output","autoTerminate":false}],"supportsParallelProcessing":false,"supportsEventDriven":false,"supportsBatching":false,"persistsState":false,"restrict
+ed":false,"deprecated":false,"executionNodeRestricted":false,"multipleVersionsAvailable":false,"inputRequirement":"INPUT_FORBIDDEN","config":{"properties":{"websocket-client-controller-service":"fa672bfc-017b-1000-3739
+-460487ad97c7","websocket-client-id":"BitstampIngestionClient"},"descriptors":{"websocket-client-controller-service":{"name":"websocket-client-controller-service","displayName":"WebSocket Client ControllerService","des
+cription":"A WebSocket CLIENT Controller Service which can connect to a WebSocket server.","allowableValues":[{"allowableValue":{"displayName":"JettyWebSocketClient","value":"fa672bfc-017b-1000-3739-460487ad97c7"},"can
+Read":true}],"required":true,"sensitive":false,"dynamic":false,"supportsEl":false,"expressionLanguageScope":"Not Supported","identifiesControllerService":"org.apache.nifi.websocket.WebSocketClientService","identifiesCo
+ntrollerServiceBundle":{"group":"org.apache.nifi","artifact":"nifi-websocket-services-api-nar","version":"1.12.1"}},"websocket-client-id":{"name":"websocket-client-id","displayName":"WebSocket Client Id","description":
+"The client ID to identify WebSocket session. It should be unique within the WebSocket Client Controller Service. Otherwise, it throws WebSocketConfigurationException when it gets started.","required":true,"sensitive":
+false,"dynamic":false,"supportsEl":false,"expressionLanguageScope":"Not Supported"}},"schedulingPeriod":"0 sec","schedulingStrategy":"TIMER_DRIVEN","executionNode":"ALL","penaltyDuration":"30 sec","yieldDuration":"1 se
+c","bulletinLevel":"WARN","runDurationMillis":0,"concurrentlySchedulableTaskCount":1,"comments":"","lossTolerant":false,"defaultConcurrentTasks":{"TIMER_DRIVEN":"1","EVENT_DRIVEN":"0","CRON_DRIVEN":"1"},"defaultSchedul
+ingPeriod":{"TIMER_DRIVEN":"0 sec","CRON_DRIVEN":"* * * * * ?"}},"validationStatus":"VALID","extensionMissing":false},"inputRequirement":"INPUT_FORBIDDEN","status":{"groupId":"f95459ec-017b-1000-6a94-506018530a1b","id"
+:"f95aced5-017b-1000-f151-7fcfd040f892","name":"ConnectWebSocket","runStatus":"Stopped","statsLastRefreshed":"22:16:27 UTC","aggregateSnapshot":{"id":"f95aced5-017b-1000-f151-7fcfd040f892","groupId":"f95459ec-017b-1000
+-6a94-506018530a1b","name":"ConnectWebSocket","type":"ConnectWebSocket","runStatus":"Stopped","executionNode":"ALL","bytesRead":0,"bytesWritten":0,"read":"0 bytes","written":"0 bytes","flowFilesIn":0,"bytesIn":0,"input
+":"0 (0 bytes)","flowFilesOut":0,"bytesOut":0,"output":"0 (0 bytes)","taskCount":0,"tasksDurationNanos":0,"tasks":"0","tasksDuration":"00:00:00.000","activeThreadCount":0,"terminatedThreadCount":0}},"operatePermissions
+":{"canRead":true,"canWrite":true}}
+
+# bierzemy revision z wyniku, zwiększamy o jeden version i możemy startować
+curl -i -X PUT -H 'Content-Type: application/json' -d '{"status": {"runStatus": "RUNNING"},"component": {"state": "RUNNING", "id": "f95aced5-017b-1000-f151-7fcfd040f892"}, "id": "f95aced5-017b-1000-f151-7fcfd040f892","revision":{"clientId":"user1","version":1}} ' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892/
+curl -i -X PUT -H 'Content-Type: application/json' -d '{"status": {"runStatus": "RUNNING"},"component": {"state": "RUNNING", "id": "f95aced5-017b-1000-f151-7fcfd040f892"}, "id": "f95aced5-017b-1000-f151-7fcfd040f892","revision":{"version":1}} ' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892/
+# Run processor for 60 sec
+sleep 60s
+
+# stopping processor
+curl -i -X PUT -H 'Content-Type: application/json' -d '{"status": {"runStatus": "Stopped"},"component": {"state": "STOPPED", "id": "f95aced5-017b-1000-f151-7fcfd040f892"}, "id": "f95aced5-017b-1000-f151-7fcfd040f892","revision":{"clientId":"761865f6-017c-1000-d6dc-dbbb86b6183d","version":2}} ' http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892/
+
+
+{"revision":{"version":0},"id":"f95aced5-017b-1000-f151-7fcfd040f892","uri":"http://localhost:8081/nifi-api/processors/f95aced5-017b-1000-f151-7fcfd040f892","position":{"x":320.0,"y":16.0},"permis
+sions":{"canRead":true,"canWrite":true},"bulletins":[],"component":{"id":"f95aced5-017b-1000-f151-7fcfd040f892","parentGroupId":"f95459ec-017b-1000-6a94-506018530a1b","position":{"x":320.0,"y":16.
+0},"name":"ConnectWebSocket","type":"org.apache.nifi.processors.websocket.ConnectWebSocket","bundle":{"group":"org.apache.nifi","artifact":"nifi-websocket-processors-nar","version":"1.12.1"},"stat
+e":"STOPPED","style":{},"relationships":[{"name":"binary message","description":"The WebSocket binary message output","autoTerminate":true},{"name":"connected","description":"The WebSocket session
+ is established","autoTerminate":false},{"name":"text message","description":"The WebSocket text message output","autoTerminate":false}],"supportsParallelProcessing":false,"supportsEventDriven":fa
+lse,"supportsBatching":false,"persistsState":false,"restricted":false,"deprecated":false,"executionNodeRestricted":false,"multipleVersionsAvailable":false,"inputRequirement":"INPUT_FORBIDDEN","con
+fig":{"properties":{"websocket-client-controller-service":"fa672bfc-017b-1000-3739-460487ad97c7","websocket-client-id":"BitstampIngestionClient"},"descriptors":{"websocket-client-controller-servic
+e":{"name":"websocket-client-controller-service","displayName":"WebSocket Client ControllerService","description":"A WebSocket CLIENT Controller Service which can connect to a WebSocket server.","
+allowableValues":[{"allowableValue":{"displayName":"JettyWebSocketClient","value":"fa672bfc-017b-1000-3739-460487ad97c7"},"canRead":true}],"required":true,"sensitive":false,"dynamic":false,"suppor
+tsEl":false,"expressionLanguageScope":"Not Supported","identifiesControllerService":"org.apache.nifi.websocket.WebSocketClientService","identifiesControllerServiceBundle":{"group":"org.apache.nifi
+","artifact":"nifi-websocket-services-api-nar","version":"1.12.1"}},"websocket-client-id":{"name":"websocket-client-id","displayName":"WebSocket Client Id","description":"The client ID to identify
+ WebSocket session. It should be unique within the WebSocket Client Controller Service. Otherwise, it throws WebSocketConfigurationException when it gets started.","required":true,"sensitive":fals
+e,"dynamic":false,"supportsEl":false,"expressionLanguageScope":"Not Supported"}},"schedulingPeriod":"0 sec","schedulingStrategy":"TIMER_DRIVEN","executionNode":"ALL","penaltyDuration":"30 sec","yi
+eldDuration":"1 sec","bulletinLevel":"WARN","runDurationMillis":0,"concurrentlySchedulableTaskCount":1,"comments":"","lossTolerant":false,"defaultConcurrentTasks":{"TIMER_DRIVEN":"1","EVENT_DRIVEN
+":"0","CRON_DRIVEN":"1"},"defaultSchedulingPeriod":{"TIMER_DRIVEN":"0 sec","CRON_DRIVEN":"* * * * * ?"}},"validationStatus":"VALID","extensionMissing":false},"inputRequirement":"INPUT_FORBIDDEN","
+status":{"groupId":"f95459ec-017b-1000-6a94-506018530a1b","id":"f95aced5-017b-1000-f151-7fcfd040f892","name":"ConnectWebSocket","runStatus":"Stopped","statsLastRefreshed":"12:35:12 UTC","aggregate
+Snapshot":{"id":"f95aced5-017b-1000-f151-7fcfd040f892","groupId":"f95459ec-017b-1000-6a94-506018530a1b","name":"ConnectWebSocket","type":"ConnectWebSocket","runStatus":"Stopped","executionNode":"A
+LL","bytesRead":0,"bytesWritten":0,"read":"0 bytes","written":"0 bytes","flowFilesIn":0,"bytesIn":0,"input":"0 (0 bytes)","flowFilesOut":0,"bytesOut":0,"output":"0 (0 bytes)","taskCount":0,"tasksD
+urationNanos":0,"tasks":"0","tasksDuration":"00:00:00.000","activeThreadCount":0,"terminatedThreadCount":0}},"operatePermissions":{"canRead":true,"canWrite":true}}
+
+
+#print kafka topic
+cd /usr/lib/kafka
+bin/kafka-console-consumer.sh --topic bitCoins --from-beginning --bootstrap-server localhost:9092
+
+
+#download templates names
+curl -i -X GET -H 'Content-Type: application/json' http://localhost:8081/nifi-api/flow/templates
+
+
+{"templates":[
+{"id":"72b17a34-756b-4096-b082-78178f894944","permissions":{"canRead":true,"canWrite":true},"template":{"uri":"http://localhost:8081/nifi-api
+/templates/72b17a34-756b-4096-b082-78178f894944","id":"72b17a34-756b-4096-b082-78178f894944","groupId":"f95459ec-017b-1000-6a94-506018530a1b","name":"lab3"
+,"description":"","timestamp":"09/19/2021 10:04:09 UTC","encoding-version":"1.3"}},
+{"id":"2ae6445c-a39e-42d6-990e-2d0d15288aec","permissions":{"canRead":tr
+ue,"canWrite":true},"template":{"uri":"http://localhost:8081/nifi-api/templates/2ae6445c-a39e-42d6-990e-2d0d15288aec","id":"2ae6445c-a39e-42d6-990e-2d0d152
+88aec","groupId":"f95459ec-017b-1000-6a94-506018530a1b","name":"lab","description":"","timestamp":"09/18/2021 20:13:58 UTC","encoding-version":"1.3"}},{"id
+":"04e72591-715f-4385-8611-8e3e5e45bd5a","permissions":{"canRead":true,"canWrite":true},"template":{"uri":"http://localhost:8081/nifi-api/templates/04e7259
+1-715f-4385-8611-8e3e5e45bd5a","id":"04e72591-715f-4385-8611-8e3e5e45bd5a","groupId":"f95459ec-017b-1000-6a94-506018530a1b","name":"my_template","descripti
+on":"","timestamp":"09/18/2021 14:39:12 UTC","encoding-version":"1.3"}},
+{"id":"e6b734ec-fd37-49f5-b04d-22457a5e95d5","permissions":{"canRead":true,"canWrit
+e":true},"template":{"uri":"http://localhost:8081/nifi-api/templates/e6b734ec-fd37-49f5-b04d-22457a5e95d5","id":"e6b734ec-fd37-49f5-b04d-22457a5e95d5","gro
+upId":"f95459ec-017b-1000-6a94-506018530a1b","name":"HW3","description":"","timestamp":"10/16/2021 21:31:48 UTC","encoding-version":"1.3"}},
+{"id":"bd691e04
+-f754-4f2b-8e36-152b6e8af46d","permissions":{"canRead":true,"canWrite":true},"template":{"uri":"http://localhost:8081/nifi-api/templates/bd691e04-f754-4f2b
+-8e36-152b6e8af46d","id":"bd691e04-f754-4f2b-8e36-152b6e8af46d","groupId":"f95459ec-017b-1000-6a94-506018530a1b","name":"HW2","description":"","timestamp":
+"09/19/2021 19:35:19 UTC","encoding-version":"1.3"}},
+{"id":"ea531082-cd42-409a-b860-646a3b94af81","permissions":{"canRead":true,"canWrite":true},"template"
+:{"uri":"http://localhost:8081/nifi-api/templates/ea531082-cd42-409a-b860-646a3b94af81","id":"ea531082-cd42-409a-b860-646a3b94af81","groupId":"f95459ec-017
+b-1000-6a94-506018530a1b","name":"lab2","description":"","timestamp":"09/18/2021 20:31:37 UTC","encoding-version":"1.3"}},
+{"id":"1ba43681-27b0-4e9e-9d89-fa
+0930d98e94","permissions":{"canRead":true,"canWrite":true},"template":{"uri":"http://localhost:8081/nifi-api/templates/1ba43681-27b0-4e9e-9d89-fa0930d98e94
+","id":"1ba43681-27b0-4e9e-9d89-fa0930d98e94","groupId":"f95459ec-017b-1000-6a94-506018530a1b","name":"day_one","description":"","timestamp":"09/18/2021 14
+:38:26 UTC","encoding-version":"1.3"}}],"generated":"23:13:32 UTC"}
+
+#download template HW2
+curl -i -X GET -H 'Content-Type: application/json' http://localhost:8081/nifi-api/templates/bd691e04-f754-4f2b-8e36-152b6e8af46d/download 2>HW2.xml 
+# remarks - remove first part of this file
+
+*************
+#other Kafka
+
+#print kafka topic
+cd /usr/lib/kafka
+bin/kafka-console-consumer.sh --topic bitCoins --from-beginning --bootstrap-server localhost:9092
+
+
+#stop zookeper
+cd /usr/lib/kafka
+bin/zookeeper-server-stop.sh /usr/lib/kafka/config/zookeeper.properties
+
+#stop Kafka
+bin/kafka-server-stop.sh /usr/lib/kafka/config/server.properties
